@@ -1,0 +1,7 @@
+[package]
+name = "proceed"
+version = "0.1.0"
+authors = ["Elias Gabriel Amaral da Silva <tolkiendili@gmail.com>"]
+
+[dependencies]
+ggez = "0.4"
