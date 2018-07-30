@@ -1,7 +1,8 @@
 [package]
 name = "proceed"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Elias Gabriel Amaral da Silva <tolkiendili@gmail.com>"]
 
 [dependencies]
 ggez = { version = "0.4", features = ["cargo-resource-root"] }
+ndarray = "0.11"
