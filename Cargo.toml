@@ -4,6 +4,7 @@ version = "0.0.1"
 authors = ["Elias Gabriel Amaral da Silva <tolkiendili@gmail.com>"]
 description = "2d procedural generation experiments"
 repository = "https://github.com/dlight/proceed"
+license = "MIT"
 
 [dependencies]
 ggez = { version = "0.4", features = ["cargo-resource-root"] }
