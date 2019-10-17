@@ -1,110 +1,95 @@
-extern crate ggez;
+use coffee::graphics::{Image, Frame, Window};
+use coffee::input::KeyboardAndMouse;
+use coffee::ui::UserInterface;
+use coffee::load::Task;
+use coffee::{Game, Result, Timer};
 
-use ggez::graphics::*;
-use ggez::*;
+mod map;
 
-struct FpsBox {
-    font: Font,
-    text: Vec<Text>,
-    margin: u32,
+mod ui;
+
+use map::DisplayedMap;
+
+pub fn main() -> Result<()> {
+    use coffee::graphics::WindowSettings;
+
+    <MapScreen as UserInterface>::run(WindowSettings {
+        title: String::from("ImageScreen - Coffee"),
+        size: (800, 600),
+        resizable: true,
+        fullscreen: false,
+        maximized: true,
+    })
 }
 
-impl FpsBox {
-    fn new(ctx: &mut Context) -> GameResult<Self> {
-        let font = Font::default_font()?;
-        let text = vec![Text::new(ctx, "tick: 0", &font)?];
+struct InGpu {
+    dirty: bool,
+    cpu_buffer: DisplayedMap,
+    gpu_handler: Image,
+}
 
-        Ok(Self {
-            font,
-            text,
-            margin: 5,
+struct MapScreen {
+    quit: bool,
+    ticks: u32,
+    map: InGpu,
+}
+
+impl Game for MapScreen {
+    type Input = KeyboardAndMouse;
+    type LoadingScreen = ();
+
+    fn load(_window: &Window) -> Task<Self> {
+    
+        let cpu_buffer = DisplayedMap::new(30, 17);
+
+        Task::using_gpu(|gpu| {
+            let gpu_handler = Image::from_image(gpu, &cpu_buffer.image).unwrap();
+
+            Ok(Self {
+                ticks: 0,
+                quit: false,
+                map: InGpu {
+                    dirty: true,
+                    cpu_buffer,
+                    gpu_handler,
+                }
+            })
         })
     }
 
-    fn update(&mut self, ctx: &mut Context, tick: u32) -> GameResult<()> {
-        let fps = timer::get_fps(ctx);
-
-        let fps_str = format!("tick {}\nfps {:.0}", tick, fps);
-
-        let wrap_limit = 500;
-
-        let (_, lines) = self.font.get_wrap(&fps_str, wrap_limit);
-
-        self.text = lines
-            .iter()
-            .map(|line| graphics::Text::new(ctx, &line, &self.font))
-            .collect::<GameResult<_>>()?;
-
-        Ok(())
+    fn is_finished(&self) -> bool {
+        self.quit
     }
 
-    fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        for (n, line) in self.text.iter().enumerate() {
-            let fps_x = ctx.conf.window_mode.width - line.width() - self.margin;
+    fn interact(&mut self, input: &mut KeyboardAndMouse, _window: &mut Window) {
+        use coffee::input::keyboard::KeyCode;
 
-            let fps_y = (n as u32) * (self.font.get_height() as u32) + self.margin;
+        let keyboard = input.keyboard();
 
-            let pos = Point2::new(fps_x as f32, fps_y as f32);
-
-            line.draw(ctx, pos, 0.0)?;
+        if keyboard.was_key_released(KeyCode::Q) {
+            self.quit = true;
         }
-
-        Ok(())
     }
-}
 
-struct GameState {
-    fps_box: FpsBox,
-    wait_time: f32,
-    tick: u32,
-}
-
-impl GameState {
-    fn new(ctx: &mut Context, wait_time: f32) -> GameResult<Self> {
-        Ok(Self {
-            fps_box: FpsBox::new(ctx)?,
-            wait_time,
-            tick: 0,
-        })
+    fn update(&mut self, _window: &Window) {
+        self.ticks += 1;
+        
+        self.map.dirty = self.map.cpu_buffer.update(self.ticks);
     }
-}
 
-impl event::EventHandler for GameState {
-    fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
-        let mut update_fps = false;
+    fn draw(&mut self, frame: &mut Frame, _timer: &Timer) {
+        use coffee::graphics::Color;
 
-        while timer::check_update_time(ctx, (1.0 / self.wait_time) as u32) {
-            self.tick += 1;
+        frame.clear(Color {
+            r: 0.3,
+            g: 0.3,
+            b: 0.6,
+            a: 1.0,
+        });
 
-            update_fps = true;
+        if self.map.dirty {
+            self.map.gpu_handler = Image::from_image(frame.gpu(), &self.map.cpu_buffer.image).unwrap();
+            self.map.dirty = false;
         }
-
-        if update_fps {
-            self.fps_box.update(ctx, self.tick)?;
-        }
-
-        Ok(())
     }
-
-    fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        clear(ctx);
-
-        self.fps_box.draw(ctx)?;
-
-        present(ctx);
-
-        timer::yield_now();
-
-        Ok(())
-    }
-}
-
-pub fn main() -> GameResult<()> {
-    let mut ctx = Context::load_from_conf("proceed", "Elias Amaral", conf::Conf::new())?;
-
-    let mut state = GameState::new(&mut ctx, 0.5)?;
-
-    event::run(&mut ctx, &mut state)?;
-
-    Ok(())
 }
