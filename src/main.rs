@@ -1,21 +1,18 @@
-use coffee::graphics::{Image, Frame, Window};
+use coffee::graphics::{Frame, Image, Window};
 use coffee::input::KeyboardAndMouse;
-use coffee::ui::UserInterface;
 use coffee::load::Task;
 use coffee::{Game, Result, Timer};
 
 mod map;
-
-mod ui;
 
 use map::DisplayedMap;
 
 pub fn main() -> Result<()> {
     use coffee::graphics::WindowSettings;
 
-    <MapScreen as UserInterface>::run(WindowSettings {
+    <MapScreen as Game>::run(WindowSettings {
         title: String::from("ImageScreen - Coffee"),
-        size: (800, 600),
+        size: (660, 400),
         resizable: true,
         fullscreen: false,
         maximized: true,
@@ -39,8 +36,9 @@ impl Game for MapScreen {
     type LoadingScreen = ();
 
     fn load(_window: &Window) -> Task<Self> {
-    
-        let cpu_buffer = DisplayedMap::new(30, 17);
+        let cpu_buffer = DisplayedMap::new(36, 20);
+
+        println!("{}", cpu_buffer.title);
 
         Task::using_gpu(|gpu| {
             let gpu_handler = Image::from_image(gpu, &cpu_buffer.image).unwrap();
@@ -52,7 +50,7 @@ impl Game for MapScreen {
                     dirty: true,
                     cpu_buffer,
                     gpu_handler,
-                }
+                },
             })
         })
     }
@@ -73,23 +71,38 @@ impl Game for MapScreen {
 
     fn update(&mut self, _window: &Window) {
         self.ticks += 1;
-        
+
         self.map.dirty = self.map.cpu_buffer.update(self.ticks);
     }
 
     fn draw(&mut self, frame: &mut Frame, _timer: &Timer) {
-        use coffee::graphics::Color;
+        use coffee::graphics::{Color, Point, Quad, Rectangle};
 
         frame.clear(Color {
-            r: 0.3,
-            g: 0.3,
-            b: 0.6,
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
             a: 1.0,
         });
 
         if self.map.dirty {
-            self.map.gpu_handler = Image::from_image(frame.gpu(), &self.map.cpu_buffer.image).unwrap();
+            self.map.gpu_handler =
+                Image::from_image(frame.gpu(), &self.map.cpu_buffer.image).unwrap();
             self.map.dirty = false;
         }
+
+        self.map.gpu_handler.draw(
+            Quad {
+                source: Rectangle {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 1.0,
+                    height: 1.0,
+                },
+                position: Point::new(0.0, 0.0),
+                size: (frame.width(), frame.height()),
+            },
+            &mut frame.as_target(),
+        );
     }
 }
